@@ -10,6 +10,7 @@ import (
 	"os"
 	"runtime"
 	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/go-gl/gl/v4.6-core/gl"
 )
 
 // type JsonMap struct {
@@ -21,9 +22,21 @@ import (
 // Global vars
 var windowWidth int = 320
 var windowHeight int = 240
+var window *glfw.Window
+var program uint32
 
 var mapPath string = "./maps/map.json"
 var jsonMapFileData types.JsonMap
+
+var square = []float32{
+    -0.5, 0.5, 0,
+    -0.5, -0.5, 0,
+    0.5, -0.5, 0,
+
+    -0.5, 0.5, 0,
+    0.5, 0.5, 0,
+    0.5, -0.5, 0,
+}
 
 func init() {
 	fmt.Println("--------")
@@ -36,50 +49,58 @@ func init() {
 		fmt.Println(err)
 	}
 	fmt.Printf("Successfully Opened %v \n", mapPath)
+	fmt.Printf("%+v\n", jsonFile)
 	// defer the closing of our jsonFile so that we can parse it later on
 	defer jsonFile.Close()
 
 	// This is needed to arrange that main() runs on main thread.
 	// See documentation for functions that are only allowed to be called from the main thread.
-	runtime.LockOSThread()
+    runtime.LockOSThread()
+
+    
+    if err := glfw.Init(); err != nil {
+		panic(err)
+    }
+    
+    glfw.WindowHint(glfw.Resizable, glfw.False)
+    glfw.WindowHint(glfw.ContextVersionMajor, 4) // OR 2
+    glfw.WindowHint(glfw.ContextVersionMinor, 1)
+    glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
+    glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
+
+    window, err := glfw.CreateWindow(windowWidth, windowHeight, "OpenGL Playground", nil, nil)
+    if err != nil {
+            panic(err)
+    }
+    window.MakeContextCurrent()
+	
+    defer glfw.Terminate()
+
+
+    if err := gl.Init(); err != nil {
+		panic(err)
+    }
+    version := gl.GoStr(gl.GetString(gl.VERSION))
+    fmt.Println("OpenGL version", version)
+
+    program = gl.CreateProgram()
+    gl.LinkProgram(program)
+
+    for !window.ShouldClose() {
+		mainRoutine()
+		// Do OpenGL stuff.
+		window.SwapBuffers()
+		glfw.PollEvents()
+    }
 }
 
 func main() {
 	fmt.Println("--------")
 	fmt.Println("main()")
 	fmt.Println("--------")
-	// utils.Blbl()
 
-	// ///// Launch RoutineManager that manages the routines of this executable : 
-	// var wg sync.WaitGroup
-	// wg.Add(1)
-	// go func(wg *sync.WaitGroup) {
-	// 	defer wg.Done()
-	// 	mainRoutine()
-	// }(&wg)
-	
+	// go mainRoutine()
 
-	err := glfw.Init()
-	if err != nil {
-		panic(err)
-	}
-	defer glfw.Terminate()
-
-	window, err := glfw.CreateWindow(windowWidth, windowHeight, "OpenGL Playground", nil, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	window.MakeContextCurrent()
-	// window.SetAspectRatio(16, 9)
-
-	go mainRoutine()
-
-	for !window.ShouldClose() {
-		// Do OpenGL stuff.
-		window.SwapBuffers()
-		glfw.PollEvents()
-	}
 }
 
 func mainRoutine() {
@@ -87,6 +108,17 @@ func mainRoutine() {
 	fmt.Println("mainRoutine()")
 	fmt.Println("--------")
 
+	drawMap()
+
 	time.Sleep(1 * time.Second)
-	mainRoutine()
+	// mainRoutine()
+}
+
+func drawMap() {
+	fmt.Println("drawMap")
+	// gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+	// gl.UseProgram(program)
+	
+	// glfw.PollEvents()
+	// window.SwapBuffers()
 }
