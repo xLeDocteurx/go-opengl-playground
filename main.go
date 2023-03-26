@@ -3,14 +3,19 @@ package main
 import (
 	"github.com/xLeDocteurx/go-opengl-playground/types"
 	// "github.com/xLeDocteurx/go-opengl-playground/utils"
+	// "github.com/xLeDocteurx/go-opengl-playground/shaders"
+
+	"github.com/veandco/go-sdl2/sdl"
+	// "github.com/tfriedel6/canvas/sdlcanvas"
 
 	"fmt"
 	// "sync"
 	"time"
 	"os"
 	"runtime"
-	"github.com/go-gl/glfw/v3.3/glfw"
-	"github.com/go-gl/gl/v4.6-core/gl"
+	"io/ioutil"
+	"encoding/json"
+	// "image/color"
 )
 
 // type JsonMap struct {
@@ -20,105 +25,185 @@ import (
 // }
 
 // Global vars
-var windowWidth int = 320
-var windowHeight int = 240
-var window *glfw.Window
-var program uint32
+var WindowWidth int32 = 320
+// var WindowWidth int32 = 640
+var WindowHeight int32 = 240
+// var WindowHeight int32 = 480
+var cellWidth int32
+var cellHeight int32
+
+var frameCount int32 = 0
+
+var window *sdl.Window
+// var surface *sdl.Surface
+var renderer *sdl.Renderer
+var texture *sdl.Texture
+
+// var vertexShaders []uint32
+// var fragmentShaders []uint32
 
 var mapPath string = "./maps/map.json"
-var jsonMapFileData types.JsonMap
-
-var square = []float32{
-    -0.5, 0.5, 0,
-    -0.5, -0.5, 0,
-    0.5, -0.5, 0,
-
-    -0.5, 0.5, 0,
-    0.5, 0.5, 0,
-    0.5, -0.5, 0,
-}
+var unmarshaledMapJson types.JsonMap 
+// var jsonMapFileData types.JsonMap
 
 func init() {
 	fmt.Println("--------")
 	fmt.Println("init()")
-	fmt.Println("--------")
+
 	// Open our jsonFile
 	jsonFile, err := os.Open(mapPath)
 	// if we os.Open returns an error then handle it
 	if err != nil {
 		fmt.Println(err)
 	}
+	// defer the closing of our jsonFile so that we can parse it later on
+	defer jsonFile.Close()
+
+    byteValue, err := ioutil.ReadAll(jsonFile)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	json.Unmarshal(byteValue, &unmarshaledMapJson)
+	if err != nil {
+		fmt.Println(err)
+	}
+	
 	fmt.Printf("Successfully Opened %v \n", mapPath)
-	fmt.Printf("%+v\n", jsonFile)
+	fmt.Printf("jsonFile : %+v\n", *jsonFile)
+	fmt.Printf("unmarshaledMapJson : %+v\n", unmarshaledMapJson)
 	// defer the closing of our jsonFile so that we can parse it later on
 	defer jsonFile.Close()
 
 	// This is needed to arrange that main() runs on main thread.
 	// See documentation for functions that are only allowed to be called from the main thread.
     runtime.LockOSThread()
-
-    
-    if err := glfw.Init(); err != nil {
-		panic(err)
-    }
-    
-    glfw.WindowHint(glfw.Resizable, glfw.False)
-    glfw.WindowHint(glfw.ContextVersionMajor, 4) // OR 2
-    glfw.WindowHint(glfw.ContextVersionMinor, 1)
-    glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
-    glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
-
-    window, err := glfw.CreateWindow(windowWidth, windowHeight, "OpenGL Playground", nil, nil)
-    if err != nil {
-            panic(err)
-    }
-    window.MakeContextCurrent()
-	
-    defer glfw.Terminate()
-
-
-    if err := gl.Init(); err != nil {
-		panic(err)
-    }
-    version := gl.GoStr(gl.GetString(gl.VERSION))
-    fmt.Println("OpenGL version", version)
-
-    program = gl.CreateProgram()
-    gl.LinkProgram(program)
-
-    for !window.ShouldClose() {
-		mainRoutine()
-		// Do OpenGL stuff.
-		window.SwapBuffers()
-		glfw.PollEvents()
-    }
 }
 
 func main() {
 	fmt.Println("--------")
 	fmt.Println("main()")
-	fmt.Println("--------")
 
-	// go mainRoutine()
+	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
+		panic(err)
+	}
+	defer sdl.Quit()
+	
+	// windowFlags := uint32(sdl.WINDOW_SHOWN) | uint32(sdl.WINDOW_FULLSCREEN_DESKTOP)
+	window, err := sdl.CreateWindow("Golang SDL Playground", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, int32(WindowWidth), int32(WindowHeight), sdl.WINDOW_SHOWN)
+	if err != nil {
+		panic(err)
+	}
+	defer window.Destroy()
+	// window.SetGrab(true)
 
+	renderer, err = sdl.CreateRenderer(window, -1, sdl.RENDERER_PRESENTVSYNC);
+	if err != nil {
+		panic(err)
+	}
+	
+	// // func (renderer *Renderer) CreateTexture(format uint32, access int, w, h int32) (*Texture, error)
+	texture, err = renderer.CreateTexture(sdl.PIXELFORMAT_RGBA8888, sdl.TEXTUREACCESS_STREAMING, 1, 1)
+	// texture, err = renderer.CreateTexture(sdl.PIXELFORMAT_RGBA8888, sdl.TEXTUREACCESS_STREAMING, WindowWidth, WindowHeight)
+	if err != nil {
+		panic(err)
+	}
+
+	cellWidth = WindowWidth / int32(unmarshaledMapJson.Width)
+	cellHeight = WindowHeight / int32(unmarshaledMapJson.Height)
+
+	go mainRoutine()
+
+	running := true
+	for running {
+		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
+			switch event.(type) {
+			case *sdl.QuitEvent:
+				println("Quit")
+				running = false
+				break
+			}
+		}
+	}
+
+}
+
+func pollEvent() {
+	
 }
 
 func mainRoutine() {
 	fmt.Println("--------")
-	fmt.Println("mainRoutine()")
-	fmt.Println("--------")
+	fmt.Printf("mainRoutine(%+v)\n", frameCount)
 
-	drawMap()
+	// //Clear screen
+	// renderer.Clear();
 
-	time.Sleep(1 * time.Second)
-	// mainRoutine()
+	drawWalls()
+
+	drawPickables()
+
+	drawPlayer()
+
+	// drawUI()
+
+	// //Render texture to screen
+	// renderer.Copy(texture, nil, nil);
+
+	//Update screen
+	renderer.Present();
+
+
+	time.Sleep((1 / 24) * time.Second)
+	frameCount += 1
+	mainRoutine()
 }
 
-func drawMap() {
-	fmt.Println("drawMap")
-	// gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-	// gl.UseProgram(program)
-	
-	// glfw.PollEvents()
-	// window.SwapBuffers()
+func drawWalls() {
+
+	// rectangle := sdl.Rect{WindowWidth / 2, WindowHeight / 2, 10, 10}
+	// renderer.SetDrawColor(255, 255, 255, 255)
+	// renderer.FillRect(&rectangle)
+	// renderer.DrawRect(&rectangle)
+
+    for i := 0; i < len(unmarshaledMapJson.Walls); i++ {
+		wall := unmarshaledMapJson.Walls[i]
+		points := unmarshaledMapJson.Walls[i].Points
+
+		renderer.SetDrawColor(wall.Color.R, wall.Color.G, wall.Color.B, wall.Color.A)
+		renderer.DrawLines(points)
+
+		for j := 0; j < len(points); j++ {
+			point := points[j]
+			color := types.NewColor(255, 0, 0, 255)
+			rect := types.NewSquareShape(renderer, texture, point.X - 2, point.Y - 2, 4, 4, color)
+			rect.Draw()
+		}
+	}
+
+	// window.UpdateSurface()
+}
+
+func drawPickables() {
+
+    for i := 0; i < len(unmarshaledMapJson.Pickables); i++ {
+		pickable := unmarshaledMapJson.Pickables[i]
+
+		rectangle := sdl.Rect{pickable.X, pickable.Y, int32(10 * pickable.Scale), int32(10 * pickable.Scale)}
+		renderer.SetDrawColor(255, 0, 127, 255)
+		renderer.FillRect(&rectangle)
+		renderer.DrawRect(&rectangle)
+	}
+
+	// window.UpdateSurface()
+}
+
+func drawPlayer() {
+	color := types.NewColor(127, 127, 127, 127)
+	player := types.NewPlayer(renderer, texture, int32(WindowWidth / 2), int32(WindowHeight - WindowHeight / 5), int32(cellWidth), int32(cellHeight), color)
+	player.Draw()
+}
+
+func drawUI() {
+
 }

@@ -1,0 +1,141 @@
+package main
+
+import (
+	"github.com/xLeDocteurx/go-opengl-playground/types"
+	// "github.com/xLeDocteurx/go-opengl-playground/utils"
+
+	"github.com/xLeDocteurx/go-opengl-playground/shaders"
+
+	"fmt"
+	// "sync"
+	"time"
+	"os"
+	"runtime"
+	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/go-gl/gl/v4.6-core/gl"
+)
+
+// type JsonMap struct {
+//     width int
+//     height int
+// 	cells []int
+// }
+
+// Global vars
+var windowWidth int = 320
+var windowHeight int = 240
+var window *glfw.Window
+var program uint32
+
+// var vertexShaders []uint32
+// var fragmentShaders []uint32
+
+var mapPath string = "./maps/map.json"
+var jsonMapFileData types.JsonMap
+
+func init() {
+	fmt.Println("--------")
+	fmt.Println("init()")
+	fmt.Println("--------")
+	// Open our jsonFile
+	jsonFile, err := os.Open(mapPath)
+	// if we os.Open returns an error then handle it
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Printf("Successfully Opened %v \n", mapPath)
+	fmt.Printf("jsonFile : %+v\n", *jsonFile)
+	// defer the closing of our jsonFile so that we can parse it later on
+	defer jsonFile.Close()
+
+	// This is needed to arrange that main() runs on main thread.
+	// See documentation for functions that are only allowed to be called from the main thread.
+    runtime.LockOSThread()
+
+    
+    if err := glfw.Init(); err != nil {
+		panic(err)
+    }
+    
+    glfw.WindowHint(glfw.Resizable, glfw.True)
+    glfw.WindowHint(glfw.ContextVersionMajor, 4) // OR 2
+    glfw.WindowHint(glfw.ContextVersionMinor, 1)
+    glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
+    glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
+
+    window, err = glfw.CreateWindow(windowWidth, windowHeight, "OpenGL Playground", nil, nil)
+    if err != nil {
+            panic(err)
+    }
+    (*window).MakeContextCurrent()
+	
+    defer glfw.Terminate()
+
+
+    if err := gl.Init(); err != nil {
+		panic(err)
+    }
+    version := gl.GoStr(gl.GetString(gl.VERSION))
+    fmt.Println("OpenGL version", version)
+
+    program = gl.CreateProgram()
+
+	fragmentShader, err := shaders.CompileShader(shaders.GetFragmentShaderSource("FF0000", 1.0), gl.FRAGMENT_SHADER)
+	if err != nil {
+		panic(err)
+	}
+
+	vertexShader, err := shaders.CompileShader(shaders.GetVertexShaderSource(1.0), gl.VERTEX_SHADER)
+	if err != nil {
+		panic(err)
+	}
+    gl.AttachShader(program, fragmentShader) 
+    gl.AttachShader(program, vertexShader)
+    gl.LinkProgram(program)
+
+    for !(*window).ShouldClose() {
+		mainRoutine()
+
+    }
+}
+
+func main() {
+	fmt.Println("--------")
+	fmt.Println("main()")
+	fmt.Println("--------")
+
+	// go mainRoutine()
+
+}
+
+func mainRoutine() {
+	fmt.Println("--------")
+	fmt.Println("mainRoutine()")
+	fmt.Println("--------")
+
+	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+	gl.UseProgram(program)
+	
+	drawMap()
+
+	// Do OpenGL stuff.
+	glfw.PollEvents()
+	(*window).SwapBuffers()
+
+	time.Sleep(1 * time.Second)
+	// mainRoutine()
+}
+
+func drawMap() {
+	fmt.Println("drawMap")
+
+	// var squareShape = types.NewSquareShape(320/4, 240/4, 320/2, 240/2, vertexShaderSource, fragmentShaderSource)
+	// var squareShape = types.NewSquareShape(0, 0,320, 240, vertexShaderSource, fragmentShaderSource)
+	var squareShape = types.NewSquareShape(0, 0, 320/2, 240/2)
+	var squareShape2 = types.NewSquareShape(320/2, 240/2, 320/2, 240/2)
+	var squareShape3 = types.NewSquareShape(320/4, 240/4, 320/2, 240/2)
+	squareShape.Draw()
+	squareShape2.Draw()
+	squareShape3.Draw()
+}
+
